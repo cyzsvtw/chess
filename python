@@ -1,529 +1,567 @@
-#include <bits/stdc++.h>
-#include <windows.h>
-#include <conio.h>
-using namespace std;
-void SetColor(int color = 7)
-{
-  HANDLE hConsole;
-  hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-  SetConsoleTextAttribute(hConsole, color);
-}
-void SetPos(int y,int x)
-{
-      HANDLE screen=GetStdHandle(STD_OUTPUT_HANDLE);
-      COORD pos;
-      pos.Y=y;
-      pos.X=x;
-      SetConsoleCursorPosition(screen, pos);
-}
-class game
-{
-public:
-int TopScore;
-int score;
-int speed;
-int NowGraphic;
-int NextGraphic;
-bool check;
-int FallTime;
-int NowPos[2];
-int spins;
-int s;
-int hold;
-bool HoldCheck;
-int stage;
-int lines;
-int combos;
-vector<vector<bool>> blocks;
-vector<vector<vector<vector<int> > > > graphic;//graphic->model->coordinate
-game(int i,int bs)
-{
-    lines=i*10-10;
-    TopScore=bs;
-    score=0;
-    speed=max(55-i*5,5);
-    spins=0;
-    s=1000;
-    hold=-1;
-    stage=i;
-    combos=1;
-    HoldCheck=false;
-    graphic.push_back({{{0,2},{1,0},{1,1},{1,2}},{{0,1},{1,1},{2,1},{2,2}},{{1,0},{1,1},{1,2},{2,0}},{{0,0},{0,1},{1,1},{2,1}}});//L
-    graphic.push_back({{{0,0},{1,0},{1,1},{1,2}},{{0,1},{0,2},{1,1},{2,1}},{{1,0},{1,1},{1,2},{2,2}},{{0,1},{1,1},{2,0},{2,1}}});//J
-    graphic.push_back({{{0,1},{0,2},{1,0},{1,1}},{{0,1},{1,1},{1,2},{2,2}},{{1,1},{1,2},{2,0},{2,1}},{{0,0},{1,0},{1,1},{2,1}}});//S
-    graphic.push_back({{{1,0},{1,1},{1,2},{1,3}},{{0,2},{1,2},{2,2},{3,2}},{{2,0},{2,1},{2,2},{2,3}},{{0,1},{1,1},{2,1},{3,1}}});//I
-    graphic.push_back({{{0,0},{0,1},{1,1},{1,2}},{{0,2},{1,1},{1,2},{2,1}},{{1,0},{1,1},{2,1},{2,2}},{{0,1},{1,0},{1,1},{2,0}}});//Z
-    graphic.push_back({{{0,1},{1,0},{1,1},{1,2}},{{0,1},{1,1},{1,2},{2,1}},{{1,0},{1,1},{1,2},{2,1}},{{0,1},{1,0},{1,1},{2,1}}});//T
-    graphic.push_back({{{1,1},{1,2},{2,1},{2,2}}});//O
-    NowGraphic=rand()%7;
-    NextGraphic=rand()%7;
-    check=false;
-    NowPos[0]=0;
-    NowPos[1]=8;
-    FallTime=0;
-    vector<bool> v;
-    v.push_back(true);v.push_back(true);
-    for(int i=2;i<12;i++) v.push_back(false);
-    v.push_back(true);v.push_back(true);
-    for(int i=0;i<20;i++) blocks.push_back(v);
-    vector<bool> v1(14,true);
-    for(int i=20;i<24;i++) blocks.push_back(v1);
-}
+import pygame as pg
+import copy
+import time as t
+
+wide = 512
+high = 512
+squares = 8
+sq_size = wide / squares
+fps = 10
+pic = {}
+valid_move = []
+pmoves = []
+w_king = [7, 4]
+b_king = [0, 4]
+passage = False
 
 
-
-void drawmap()
-{
-    SetColor();
-    for(int i=0;i<20;i++)
-    {
-      SetPos(i,0);
-      cout<<0;
-      SetPos(i,22);
-      cout<<0;
-    }
-    SetPos(20,0);
-    for(int i=0;i<12;i++) cout<<"0 ";
-    SetPos(0,24);
-    cout<<"next:";
-    SetPos(5,24);
-    cout<<"hold:";
-    SetPos(11,24);
-    cout<<"best score:"<<TopScore;
-    SetPos(13,24);
-    cout<<"your score:"<<score;
-    SetPos(15,24);
-    cout<<"stage:"<<stage;
-}
-int Next(int n)
-{
-    for(int i=24;i<32;i+=2)
-    {
-        for(int j=1;j<5;j++)
-        {
-            SetPos(j,i);
-            cout<<" ";
-        }
-    }
-    PrintGraphic(24,1,n);
-}
-int NowDrop(int n)
-{
-    PrintGraphic(NowPos[1],NowPos[0],n);
-
-}
-void PrintGraphic(int x,int y,int modelnum)
-{
-    int counter=0;
-    SetColor(modelnum+8);
-    for(int i=0;i<4;i++)
-    {
-        for(int j=0;j<4;j++)
-        {
-         if(graphic[modelnum][spins][counter][0]==i&&graphic[modelnum][spins][counter][1]==j)
-         {
-             counter++;
-             SetPos(y+i,x+j*2);
-             cout<<0;
-         }
-         if(counter==4) return;
-        }
-    }
-}
-bool FallJudge()
-{
-    for(int i=0;i<4;i++)
-    {
-        if(blocks[graphic[NowGraphic][spins][i][0]+1+NowPos[0]][NowPos[1]/2+graphic[NowGraphic][spins][i][1]+1]) return true;
-    }
-    return false;
-}
-void ClearGraphic()
-{
-    for(int i=0;i<4;i++)
-    {
-        for(int j=0;j<8;j+=2)
-        {
-            if(this->blocks[NowPos[0]+i][(NowPos[1]+j)/2+1]) continue;
-             SetPos(this->NowPos[0]+i,this->NowPos[1]+j);
-             cout<<" ";
-        }
-    }
-}
-void RegressPos()
-{
-    NowPos[0]=0;
-    NowPos[1]=8;
-}
-void prepare()
-{
-    s=1000;
-    spins=0;
-    RegressPos();
-    NowGraphic=NextGraphic;
-    NextGraphic=rand()%7;
-    Next(NextGraphic);
+# 加載圖片
+def load_image():
+    pieces = ["bc", "bh", "bb", "bq", "bk", "bb", "bh", "bc", "bp", "wc", "wh", "wb", "wq", "wk", "wb", "wh", "wc",
+              "wp"]
+    for i in pieces:
+        pic[i] = pg.transform.scale(pg.image.load("pic/" + i + ".png"), (sq_size, sq_size))
 
 
-}
-void inputblocks()
-{
-        for(int i=0;i<4;i++)
-               {
-                 blocks[graphic[NowGraphic][spins][i][0]+NowPos[0]][NowPos[1]/2+graphic[NowGraphic][spins][i][1]+1]=true;
-               }
-}
-void manipulate()
-{
-    bool ValidMove=false;
-    int f=getch();
-    if(f=='a'&&NowPos[1]>=0)
-    {
-        if(MoveJudge(NowPos[0],NowPos[1]-2,spins))
-        {
-            ClearGraphic();
-            FallTime-=speed/4;
-            NowPos[1]-=2;
-            NowDrop(NowGraphic);
-            ValidMove=true;
-        }
-
-    }
-    else if(f=='d'&&NowPos[1]!=20)
-    {
-
-       if(MoveJudge(NowPos[0],NowPos[1]+2,spins))
-        {
-            ClearGraphic();
-            FallTime-=speed/4;
-            NowPos[1]+=2;
-            NowDrop(NowGraphic);
-        }
-
-    }
-    else if(f=='w')
-    {
-        int temp=s+1;
-        int temps=temp%graphic[NowGraphic].size();
-        if(MoveJudge(NowPos[0],NowPos[1],temps))
-        {
-            ClearGraphic();
-            s++;
-            FallTime-=speed/10;
-            spins=s%graphic[NowGraphic].size();
-            NowDrop(NowGraphic);
-        }
-
-    }
-    else if(f=='s')
-    {
-        if(NowPos[0]!=0)
-        {
-            FallTime=speed;
-            score++;
-            printscore();
-        }
-    }
-    else if(f==' ')
-    {
-        while(!FallJudge())
-        {
-            ClearGraphic();
-            NowPos[0]++;
-            score+=2;
-        }
-        printscore();
-        FallTime=speed;
-        NowDrop(NowGraphic);
-    }
-    else if(f=='c')
-    {
-        if(hold==-1)
-        {
-            ClearGraphic();
-            hold=NowGraphic;
-            RegressPos();
-            spins=0;
-            PrintGraphic(23,6,NowGraphic);
-            HoldCheck=true;
-            NowGraphic=NextGraphic;
-            NextGraphic=rand()%7;
-            FallTime=0;
-            NowDrop(NowGraphic);
-
-        }
-        if(!HoldCheck)
-        {
-            int temp;
-            for(int i=23;i<31;i+=2)
-            {
-                for(int j=6;j<10;j++)
-                {
-                    SetPos(j,i);
-                    cout<<" ";
-                }
-            }
-            ClearGraphic();
-            temp=NowGraphic;
-            NowGraphic=hold;
-            hold=temp;
-            spins=0;
-            PrintGraphic(23,6,hold);
-            HoldCheck=true;
-            RegressPos();
-            FallTime=0;
-            NowDrop(NowGraphic);
-
-        }
-    }
-    else if(f=='p')
-    {
-        SetPos(22,0);
-        system("pause");
-        SetPos(22,0);
-        cout<<"                         ";
-    }
+class game:
+    def __init__(self):
+        self.board = [
+            ["bc", "bh", "bb", "bq", "bk", "bb", "bh", "bc"],
+            ["bp", "bp", "bp", "bp", "bp", "bp", "bp", "bp"],
+            ["..", "..", "..", "..", "..", "..", "..", ".."],
+            ["..", "..", "..", "..", "..", "..", "..", ".."],
+            ["..", "..", "..", "..", "..", "..", "..", ".."],
+            ["..", "..", "..", "..", "..", "..", "..", ".."],
+            ["wp", "wp", "wp", "wp", "wp", "wp", "wp", "wp"],
+            ["wc", "wh", "wb", "wq", "wk", "wb", "wh", "wc"]
+        ]
+        self.white_move = True
+        self.record = []
 
 
-}
-bool MoveJudge(int v1,int v2,int myspins)
-{
+def valid_moves(mygame, moves, pmoves):
+    moves.clear()
+    pmoves.clear()
+    for i in range(squares):
+        for j in range(squares):
+            check_color = mygame.board[i][j][0]
+            if (check_color == 'w' and mygame.white_move) or (
+                    check_color == 'b' and not mygame.white_move):
+                check_piece = mygame.board[i][j][1]
+                if check_piece == 'p':
+                    pawn(mygame, i, j, mygame.white_move, moves)
+                elif check_piece == 'c':
+                    castle(mygame, i, j, mygame.white_move, moves)
+                elif check_piece == 'b':
+                    bishop(mygame, i, j, mygame.white_move, moves)
+                elif check_piece == 'q':
+                    queen(mygame, i, j, mygame.white_move, moves)
+                elif check_piece == 'h':
+                    horse(mygame, i, j, mygame.white_move, moves)
+                elif check_piece == 'k':
+                    king(mygame, i, j, mygame.white_move, moves)
+    l = len(mygame.record) - 1
+    if l > 0:
+        if mygame.board[mygame.record[l][1][0]][mygame.record[l][1][1]][1] == 'p':
+            if mygame.record[l][0][0] == 1 and mygame.record[l][0][1] == 3:
+                print(2)
+                if j != 0 and mygame.board[mygame.record[l][1][0]][mygame.record[l][1][1] - 1] == "wp":
+                    pmoves.append([[4, mygame.record[l][1][1] - 1], [2, mygame.record[l][1][1]]])
+                    print(1)
+                if j != 7 and mygame.board[mygame.record[l][1][0]][mygame.record[l][1][1] + 1] == "wp":
+                    pmoves.append([[4, mygame.record[l][1][1] + 1], [2, mygame.record[l][1][1]]])
+                    print(1)
 
 
-   for(int i=0;i<4;i++)
-    {
+def get_valid(mygame, moves):
+    valid_moves(mygame, moves, pmoves)
+    opp_moves = []
+    new_arr = []
+    arr = copy.deepcopy(mygame.board)
+    wk_pos = copy.deepcopy(w_king)
+    bk_pos = copy.deepcopy(b_king)
+    for i in range(len(moves) - 1, -1, -1):
+        c = True
+        piece_move(mygame, moves[i][0][0], moves[i][0][1], moves[i][1][0], moves[i][1][1])
+        valid_moves(mygame, opp_moves, pmoves)
+        mygame.white_move = not mygame.white_move
+        for j in opp_moves:
+            if not c:
+                break
+            if mygame.white_move:
+                if w_king == j[1]:
+                    c = False
+            else:
+                if b_king == j[1]:
+                    c = False
+        if c:
+            new_arr.append(moves[i])
+
+        if [moves[i][0][0], moves[i][0][1]] == wk_pos:
+            w_king[0] = wk_pos[0]
+            w_king[1] = wk_pos[1]
+        elif [moves[i][0][0], moves[i][0][1]] == bk_pos:
+            b_king[0] = bk_pos[0]
+            b_king[1] = bk_pos[1]
+        mygame.board = copy.deepcopy(arr)
+    moves = copy.deepcopy(new_arr)
+    return moves
 
 
-        if(blocks[graphic[NowGraphic][myspins][i][0]+v1][v2/2+graphic[NowGraphic][myspins][i][1]+1])
-        {
-            return false;
-        }
-    }
-    return true;
-}
-void LineJudge()
-{
-    vector<int> clearrows;
-    for(int i=NowPos[0];i<NowPos[0]+4&&i<20;i++)
-    {
-        bool check=true;
-        for(int j=2;j<12;j++)
-        {
-            if(!blocks[i][j])
-            {
-                check=false;
-                break;
-            }
-        }
-        if(check) clearrows.push_back(i);
-    }
-    if(clearrows.empty())
-    {
-        combos=1;
-        return;
-    }
-    ClearLines(clearrows);
+def piece_move(mygame, x, y, new_x, new_y):
+    mygame.board[new_x][new_y] = mygame.board[x][y]
+    mygame.board[x][y] = ".."
+    mygame.white_move = not mygame.white_move
+    if [x, y] == w_king:
+        w_king[0] = new_x
+        w_king[1] = new_y
+    elif [x, y] == b_king:
+        b_king[0] = new_x
+        b_king[1] = new_y
 
-}
-void ClearLines(vector<int> nums)
-{
-    switch(nums.size())
-    {
-    case 1:
-        score+=(40+combos*50)*stage;
-        break;
-    case 2:
-        score+=(100+combos*50)*stage;
-        break;
-     case 3:
-        score+=(300*+combos*50)*stage;
-        break;
-    case 4:
-        score+=(1200*+combos*50)*stage;
-        break;
-    }
-     printscore();
-    for(int i=0;i<nums.size();i++)
-    {
-        for(int j=nums[i];j>=1;j--)
-        {
-            for(int k=2;k<12;k++)
-            {
-                blocks[j][k]=blocks[j-1][k];
-            }
-        }
-    }
-    for(int i=0;i<20;i++)
-    {
-        for(int j=2;j<12;j++)
-        {
-            SetPos(i,j*2-2);
-            if(blocks[i][j]) cout<<"0";
-            else cout<<" ";
-        }
-    }
-    lines+=nums.size();
-    combos++;
-}
-void printscore()
-{
-    SetColor(7);
-    SetPos(13,35);
-    cout<<score;
-    TopScore=max(TopScore,score);
-    SetPos(11,35);
-    cout<<TopScore;
-    SetPos(15,30);
-    cout<<stage;
-}
-};
-void menu()
-{
-    cout<<"1.game start\n2.set stage\n3.Operation\n4.exit\n";
-}
-void option()
-{
-    cout<<"move left:A\n";
-    cout<<"move right:D\n";
-    cout<<"spin:W\n";
-    cout<<"soft drop:S\n";
-    cout<<"hard drop:space\n";
-    cout<<"hold:C\n";
-    cout<<"pause:P\n";
-    cout<<"press any button to leave this page\n";
-}
-int main()
-{
-    string input;
-    int setstage=1;
-    int bs=0;
-    srand(time(0));
-    while(1)
-    {
-    menuflag:
-    menu();
-    cin>>input;
-    if(input=="1")
-    {
-    gameflag:
-    game g(setstage,bs);
-    system("cls");
-    g.drawmap();
-    g.Next(g.NextGraphic);
-    for(int i=3;i>=1;i--)
-    {
-        SetColor(15);
-        SetPos(21,0);
-        cout<<i;
-        Sleep(1000);
-    }
-    SetPos(21,0);
-    cout<<"go!";
-    Sleep(300);
-    SetPos(21,0);
-    cout<<"        ";
-    while(1)
-    {
-        g.stage=g.lines/10+1;
-        g.speed=max(5,50-g.stage*5);
-        if(g.FallTime>=g.speed)
-        {
-            g.FallTime=0;
-            if(g.FallJudge())
-            {
-                g.inputblocks();
-                g.LineJudge();
-                g.prepare();
-                g.NowDrop(g.NowGraphic);
-                g.HoldCheck=false;
-                if(!g.MoveJudge(g.NowPos[0],g.NowPos[1],g.spins))
-                {
-                    bs=g.TopScore;
-                    SetColor(15);
-                    SetPos(21,0);
-                    cout<<"game over!/ndo you want to play again?(y/n)";
-                    while(1)
-                    {
-                        cin>>input;
-                        if(input=="y")
-                        {
-                            system("cls");
-                            goto gameflag;
-                        }
-                        else if(input=="n")
-                        {
-                            cout<<"thanks for playing\n";
-                            system("pause");
-                            system("cls");
-                            goto menuflag;
-                        }
 
-                    }
+def pawn(mygame, x, y, turn, arr):
+    if turn:
+        if mygame.board[x - 1][y] == "..":
+            arr.append([[x, y], [x - 1, y]])
+        if x == 6 and mygame.board[4][y] == ".." and mygame.board[5][y] == "..":
+            arr.append([[x, y], [4, y]])
+        if y != 0 and mygame.board[x - 1][y - 1][0] == 'b':
+            arr.append([[x, y], [x - 1, y - 1]])
+        if y != 7 and mygame.board[x - 1][y + 1][0] == 'b':
+            arr.append([[x, y], [x - 1, y + 1]])
+    else:
+        if mygame.board[x + 1][y] == "..":
+            arr.append([[x, y], [x + 1, y]])
+        if x == 1 and mygame.board[3][y] == ".." and mygame.board[2][y] == "..":
+            arr.append([[x, y], [3, y]])
+        if y != 0 and mygame.board[x + 1][y - 1][0] == 'w':
+            arr.append([[x, y], [x + 1, y - 1]])
+        if y != 7 and mygame.board[x + 1][y + 1][0] == 'w':
+            arr.append([[x, y], [x + 1, y + 1]])
 
-                }
-                ;
-            }
-            else
-            {
-            g.ClearGraphic();
-            g.NowPos[0]++;
-            g.NowDrop(g.NowGraphic);
-            }
-        }
 
-        if(kbhit())
-        {
-           g.manipulate();
-        }
-        SetPos(20,30);
-        Sleep(1);
-        g.FallTime++;
+def castle(mygame, x, y, turn, arr):
+    if turn:
+        for i in range(x - 1, -1, -1):
+            if mygame.board[i][y] == "..":
+                arr.append([[x, y], [i, y]])
+            elif mygame.board[i][y][0] == 'w':
+                break
+            elif mygame.board[i][y][0] == "b":
+                arr.append([[x, y], [i, y]])
+                break
+        for i in range(x + 1, 8):
+            if mygame.board[i][y] == "..":
+                arr.append([[x, y], [i, y]])
+            elif mygame.board[i][y][0] == 'w':
+                break
+            elif mygame.board[i][y][0] == "b":
+                arr.append([[x, y], [i, y]])
+                break
 
-    }
-    }
-    else if(input=="2")
-    {
-        int ss;
-        cout<<"choose difficulty (from 1 to 10)";
-        while(1)
-        {
-        cin>>ss;
-        if(ss>=1&&ss<=10)
-        {
-            setstage=ss;
-            cout<<"Successfully modified\n";
-            system("pause");
-            system("cls");
-            break;
-        }
-        else
-        {
-         cout<<"invalid input,please input again\n";
-        }
-        }
+        for i in range(y - 1, -1, -1):
+            if mygame.board[x][i] == "..":
+                arr.append([[x, y], [x, i]])
+            elif mygame.board[x][i][0] == 'w':
+                break
+            elif mygame.board[x][i][0] == "b":
+                arr.append([[x, y], [x, i]])
+                break
+        for i in range(y + 1, 8):
+            if mygame.board[x][i] == "..":
+                arr.append([[x, y], [x, i]])
+            elif mygame.board[x][i][0] == 'w':
+                break
+            elif mygame.board[x][i][0] == "b":
+                arr.append([[x, y], [x, i]])
+                break
+    else:
+        for i in range(x - 1, -1, -1):
+            if mygame.board[i][y] == "..":
+                arr.append([[x, y], [i, y]])
+            elif mygame.board[i][y][0] == 'b':
+                break
+            elif mygame.board[i][y][0] == "w":
+                arr.append([[x, y], [i, y]])
+                break
+        for i in range(x + 1, 8):
+            if mygame.board[i][y] == "..":
+                arr.append([[x, y], [i, y]])
+            elif mygame.board[i][y][0] == 'b':
+                break
+            elif mygame.board[i][y][0] == "w":
+                arr.append([[x, y], [i, y]])
+                break
 
-    }
-    else if(input=="3")
-    {
-        system("cls");
-        option();
-         while(1)
-    {
-        if(kbhit())
-        {
-            getch();
-            system("cls");
-            goto menuflag;
-        }
+        for i in range(y - 1, -1, -1):
+            if mygame.board[x][i] == "..":
+                arr.append([[x, y], [x, i]])
+            elif mygame.board[x][i][0] == 'b':
+                break
+            elif mygame.board[x][i][0] == "w":
+                arr.append([[x, y], [x, i]])
+                break
+        for i in range(y + 1, 8):
+            if mygame.board[x][i] == "..":
+                arr.append([[x, y], [x, i]])
+            elif mygame.board[x][i][0] == 'b':
+                break
+            elif mygame.board[x][i][0] == "w":
+                arr.append([[x, y], [x, i]])
+                break
 
-    }
-    }
-    else if(input=="4")
-    {
-        cout<<"byebye\n";
-        system("pause");
-        break;
-    }
-    }
-    return 0;
-}
+
+def bishop(mygame, x, y, turn, arr):
+    if turn:
+        for i in range(1, 8):
+            if x + i == 8:
+                break
+            if y + i == 8:
+                break
+            if mygame.board[x + i][y + i] == "..":
+                arr.append([[x, y], [x + i, y + i]])
+            elif mygame.board[x + i][y + i][0] == "w":
+                break
+            elif mygame.board[x + i][y + i][0] == "b":
+                arr.append([[x, y], [x + i, y + i]])
+                break
+        for i in range(1, 8):
+            if x - i == -1:
+                break
+            if y - i == -1:
+                break
+            if mygame.board[x - i][y - i] == "..":
+                arr.append([[x, y], [x - i, y - i]])
+            elif mygame.board[x - i][y - i][0] == "w":
+                break
+            elif mygame.board[x - i][y - i][0] == "b":
+                arr.append([[x, y], [x - i, y - i]])
+                break
+        for i in range(1, 8):
+            if x - i == -1:
+                break
+            if y + i == 8:
+                break
+            if mygame.board[x - i][y + i] == "..":
+                arr.append([[x, y], [x - i, y + i]])
+            elif mygame.board[x - i][y + i][0] == "w":
+                break
+            elif mygame.board[x - i][y + i][0] == "b":
+                arr.append([[x, y], [x - i, y + i]])
+                break
+        for i in range(1, 8):
+            if x + i == 8:
+                break
+            if y - i == -1:
+                break
+            if mygame.board[x + i][y - i] == "..":
+                arr.append([[x, y], [x + i, y - i]])
+            elif mygame.board[x + i][y - i][0] == "w":
+                break
+            elif mygame.board[x + i][y - i][0] == "b":
+                arr.append([[x, y], [x + i, y - i]])
+                break
+    else:
+        for i in range(1, 8):
+            if x + i == 8:
+                break
+            if y + i == 8:
+                break
+            if mygame.board[x + i][y + i] == "..":
+                arr.append([[x, y], [x + i, y + i]])
+            elif mygame.board[x + i][y + i][0] == "b":
+                break
+            elif mygame.board[x + i][y + i][0] == "w":
+                arr.append([[x, y], [x + i, y + i]])
+                break
+        for i in range(1, 8):
+            if x - i == -1:
+                break
+            if y - i == -1:
+                break
+            if mygame.board[x - i][y - i] == "..":
+                arr.append([[x, y], [x - i, y - i]])
+            elif mygame.board[x - i][y - i][0] == "b":
+                break
+            elif mygame.board[x - i][y - i][0] == "w":
+                arr.append([[x, y], [x - i, y - i]])
+                break
+        for i in range(1, 8):
+            if x - i == -1:
+                break
+            if y + i == 8:
+                break
+            if mygame.board[x - i][y + i] == "..":
+                arr.append([[x, y], [x - i, y + i]])
+            elif mygame.board[x - i][y + i][0] == "b":
+                break
+            elif mygame.board[x - i][y + i][0] == "w":
+                arr.append([[x, y], [x - i, y + i]])
+                break
+        for i in range(1, 8):
+            if x + i == 8:
+                break
+            if y - i == -1:
+                break
+            if mygame.board[x + i][y - i] == "..":
+                arr.append([[x, y], [x + i, y - i]])
+            elif mygame.board[x + i][y - i][0] == "b":
+                break
+            elif mygame.board[x + i][y - i][0] == "w":
+                arr.append([[x, y], [x + i, y - i]])
+                break
+
+
+def queen(mygame, x, y, turn, arr):
+    castle(mygame, x, y, turn, arr)
+    bishop(mygame, x, y, turn, arr)
+
+
+def horse(mygame, x, y, turn, arr):
+    if turn:
+        if x - 2 >= 0 and y - 1 >= 0 and mygame.board[x - 2][y - 1][0] != 'w':
+            arr.append([[x, y], [x - 2, y - 1]])
+        if x - 2 >= 0 and y + 1 <= 7 and mygame.board[x - 2][y + 1][0] != 'w':
+            arr.append([[x, y], [x - 2, y + 1]])
+        if x + 2 <= 7 and y - 1 >= 0 and mygame.board[x + 2][y - 1][0] != 'w':
+            arr.append([[x, y], [x + 2, y - 1]])
+        if x + 2 <= 7 and y + 1 <= 7 and mygame.board[x + 2][y + 1][0] != 'w':
+            arr.append([[x, y], [x + 2, y + 1]])
+        if x - 1 >= 0 and y - 2 >= 0 and mygame.board[x - 1][y - 2][0] != 'w':
+            arr.append([[x, y], [x - 1, y - 2]])
+        if x - 1 >= 0 and y + 2 <= 7 and mygame.board[x - 1][y + 2][0] != 'w':
+            arr.append([[x, y], [x - 1, y + 2]])
+        if x + 1 <= 7 and y - 2 >= 0 and mygame.board[x + 1][y - 2][0] != 'w':
+            arr.append([[x, y], [x + 1, y - 2]])
+        if x + 1 <= 7 and y + 2 <= 7 and mygame.board[x + 1][y + 2][0] != 'w':
+            arr.append([[x, y], [x + 1, y + 2]])
+    else:
+        if x - 2 >= 0 and y - 1 >= 0 and mygame.board[x - 2][y - 1][0] != 'b':
+            arr.append([[x, y], [x - 2, y - 1]])
+        if x - 2 >= 0 and y + 1 <= 7 and mygame.board[x - 2][y + 1][0] != 'b':
+            arr.append([[x, y], [x - 2, y + 1]])
+        if x + 2 <= 7 and y - 1 >= 0 and mygame.board[x + 2][y - 1][0] != 'b':
+            arr.append([[x, y], [x + 2, y - 1]])
+        if x + 2 <= 7 and y + 1 <= 7 and mygame.board[x + 2][y + 1][0] != 'b':
+            arr.append([[x, y], [x + 2, y + 1]])
+        if x - 1 >= 0 and y - 2 >= 0 and mygame.board[x - 1][y - 2][0] != 'b':
+            arr.append([[x, y], [x - 1, y - 2]])
+        if x - 1 >= 0 and y + 2 <= 7 and mygame.board[x - 1][y + 2][0] != 'b':
+            arr.append([[x, y], [x - 1, y + 2]])
+        if x + 1 <= 7 and y - 2 >= 0 and mygame.board[x + 1][y - 2][0] != 'b':
+            arr.append([[x, y], [x + 1, y - 2]])
+        if x + 1 <= 7 and y + 2 <= 7 and mygame.board[x + 1][y + 2][0] != 'b':
+            arr.append([[x, y], [x + 1, y + 2]])
+
+
+def king(mygame, x, y, turn, arr):
+    if turn:
+        if x + 1 <= 7 and mygame.board[x + 1][y][0] != 'w':
+            arr.append([[x, y], [x + 1, y]])
+        if x - 1 >= 0 and mygame.board[x - 1][y][0] != 'w':
+            arr.append([[x, y], [x - 1, y]])
+        if x + 1 <= 7 and mygame.board[x + 1][y + 1][0] != 'w' and y + 1 <= 7:
+            arr.append([[x, y], [x + 1, y + 1]])
+        if x - 1 >= 0 and mygame.board[x - 1][y - 1][0] != 'w' and y - 1 >= 0:
+            arr.append([[x, y], [x - 1, y - 1]])
+        if x + 1 <= 7 and mygame.board[x + 1][y - 1][0] != 'w' and y - 1 <= 7:
+            arr.append([[x, y], [x + 1, y - 1]])
+        if x - 1 >= 0 and mygame.board[x - 1][y + 1][0] != 'w' and y + 1 >= 0:
+            arr.append([[x, y], [x - 1, y + 1]])
+        if y + 1 <= 7 and mygame.board[x][y + 1][0] != 'w':
+            arr.append([[x, y], [x, y + 1]])
+        if y - 1 >= 0 and mygame.board[x][y - 1][0] != 'w':
+            arr.append([[x, y], [x, y - 1]])
+    else:
+        if x + 1 <= 7 and mygame.board[x + 1][y][0] != 'b':
+            arr.append([[x, y], [x + 1, y]])
+        if x - 1 >= 0 and mygame.board[x - 1][y][0] != 'b':
+            arr.append([[x, y], [x - 1, y]])
+        if x + 1 <= 7 and mygame.board[x + 1][y + 1][0] != 'b' and y + 1 <= 7:
+            arr.append([[x, y], [x + 1, y + 1]])
+        if x - 1 >= 0 and mygame.board[x - 1][y - 1][0] != 'b' and y - 1 >= 0:
+            arr.append([[x, y], [x - 1, y - 1]])
+        if x + 1 <= 7 and mygame.board[x + 1][y - 1][0] != 'b' and y - 1 <= 7:
+            arr.append([[x, y], [x + 1, y - 1]])
+        if x - 1 >= 0 and mygame.board[x - 1][y + 1][0] != 'b' and y + 1 >= 0:
+            arr.append([[x, y], [x - 1, y + 1]])
+        if y + 1 <= 7 and mygame.board[x][y + 1][0] != 'b':
+            arr.append([[x, y], [x, y + 1]])
+        if y - 1 >= 0 and mygame.board[x][y - 1][0] != 'b':
+            arr.append([[x, y], [x, y - 1]])
+
+
+def pawn_promote(turn):
+    promote = input("pawn promote")
+    if turn:
+        w = ["wc", "wh", "wb", "wq"]
+        while promote not in w:
+            promote = input("pawn promote")
+        return promote
+    else:
+        b = ["bc", "bh", "bb", "bq"]
+        while promote not in b:
+            promote = input("pawn promote")
+        return promote
+
+
+def castled(mygame, x, y, new_x, new_y):
+    a = ".."
+    if not mygame.white_move:
+        if x == 0 and y == 4:
+            if new_x == 0 and new_y == 1:
+                if mygame.board[0][1] == a and mygame.board[0][2] == a and mygame.board[0][3] == a:
+                    for i in mygame.record:
+                        if i[0] == [x, y] or i[1] == [x, y] or i[0] == [new_x, 7] or i[1] == [new_x, 7]:
+                            return
+                    mygame.board[0][0] = ".."
+                    mygame.board[0][1] = "bk"
+                    b_king[1] = 1
+                    mygame.board[0][3] = "bc"
+                    mygame.white_move = not mygame.white_move
+                    return
+                else:
+                    return
+            elif new_x == 0 and new_y == 6:
+                if mygame.board[0][5] == a and mygame.board[0][6] == a:
+                    for i in mygame.record:
+                        if i[0] == [x, y] or i[1] == [x, y] or i[0] == [new_x, 7] or i[1] == [new_x, 7]:
+                            return
+                    mygame.board[0][7] = ".."
+                    mygame.board[0][6] = "bk"
+                    b_king[1] = 6
+                    mygame.board[0][5] = "bc"
+                    mygame.board[0][4] = ".."
+                    mygame.white_move = not mygame.white_move
+                    return
+            else:
+                return
+    else:
+        if x == 7 and y == 4:
+            if new_x == 7 and new_y == 1:
+                if mygame.board[7][1] == a and mygame.board[7][2] == a and mygame.board[7][3] == a:
+                    for i in mygame.record:
+                        if i[0] == [x, y] or i[1] == [x, y] or i[0] == [new_x, 0] or i[1] == [new_x, 0]:
+                            return
+                    mygame.board[7][0] = ".."
+                    mygame.board[7][1] = "wk"
+                    w_king[1] = 1
+                    mygame.board[7][3] = "wc"
+                    mygame.board[7][4] = ".."
+                    mygame.white_move = not mygame.white_move
+                    return
+                else:
+                    return
+            elif new_x == 7 and new_y == 6:
+                if mygame.board[7][5] == a and mygame.board[7][6] == a:
+                    for i in mygame.record:
+                        if i[0] == [x, y] or i[1] == [x, y] or i[0] == [new_x, 7] or i[1] == [new_x, 7]:
+                            return
+                    mygame.board[7][7] = ".."
+                    mygame.board[7][6] = "wk"
+                    w_king[1] = 6
+                    mygame.board[7][5] = "wc"
+                    mygame.board[7][4] = ".."
+                    mygame.white_move = not mygame.white_move
+                    return
+                else:
+                    return
+            else:
+                return
+
+
+# def enpassent(mygame, x, y, new_x, new_y):
+
+
+def draw_board(screen):
+    colors = [pg.Color("white"), pg.Color("red")]
+    for i in range(squares):
+        for j in range(squares):
+            pg.draw.rect(screen, colors[(i + j) % 2], pg.Rect(j * sq_size, i * sq_size, sq_size, sq_size))
+
+
+def draw_piece(screen, board):
+    for i in range(squares):
+        for j in range(squares):
+            p = board[i][j]
+            if p != "..":
+                screen.blit(pic[p], pg.Rect(j * sq_size, i * sq_size, sq_size, sq_size))
+
+
+def draw_game(screen, mg):
+    draw_board(screen)
+    draw_piece(screen, mg.board)
+
+
+def main():
+    pg.init()
+    screen = pg.display.set_mode((high, wide))
+    time = pg.time.Clock()
+    screen.fill(pg.Color("white"))
+    mygame = game()
+    load_image()
+    select = [-1, -1]
+    while 1:
+        for e in pg.event.get():
+            if e.type == pg.QUIT:
+                break
+            elif e.type == pg.MOUSEBUTTONDOWN:
+                pos = pg.mouse.get_pos()
+                sq_x = int(pos[1] // sq_size)
+                sq_y = int(pos[0] // sq_size)
+                if select == [sq_x, sq_y]:
+                    select = [-1, -1]
+                elif select == [-1, -1]:
+                    select = [sq_x, sq_y]
+                else:
+                    if [select, [sq_x, sq_y]] in get_valid(mygame, valid_move):
+                        piece_move(mygame, select[0], select[1], sq_x, sq_y)
+                        mygame.record.append([select, [sq_x, sq_y]])
+                    castled(mygame, select[0], select[1], sq_x, sq_y)
+                    print(mygame.record)
+                    print(pmoves)
+                    select = [-1, -1]
+                    for i in range(8):
+                        if mygame.board[0][i] == "wp":
+                            mygame.board[0][i] = copy.deepcopy(pawn_promote(True))
+                        elif mygame.board[7][i] == "bp":
+                            mygame.board[7][i] = copy.deepcopy(pawn_promote(False))
+                    if not get_valid(mygame, valid_move):
+                        draw_game(screen, mygame)
+                        time.tick(fps)
+                        pg.display.flip()
+                        mygame.white_move = not mygame.white_move
+                        valid_moves(mygame, valid_move, pmoves)
+                        is_check = False
+                        if mygame.white_move:
+                            for i in valid_move:
+                                if is_check:
+                                    break
+                                if i[1] == b_king:
+                                    is_check = True
+                        else:
+                            for i in valid_move:
+                                if is_check:
+                                    break
+                                if i[1] == w_king:
+                                    is_check = True
+                        if is_check:
+                            print("checkmate!!!", end=" ")
+                            if mygame.white_move:
+                                print("white win")
+                            else:
+                                print("black win")
+                        else:
+                            print("stalemate, draw")
+                        t.sleep(3)
+                        exit(1)
+
+        draw_game(screen, mygame)
+        time.tick(fps)
+        pg.display.flip()
+
+
+main()
+exit(1)
+
